@@ -1,0 +1,21 @@
+# Dockerfile.comet
+# @brad_anton
+# 
+# Basic Dockerfile for launching the API Flask App and main from comet's
+# example: 
+#   https://github.com/spotify/comet
+#
+#
+FROM python:3
+
+WORKDIR /usr/src/app
+
+# Install comet
+COPY comet/comet_example/ .
+COPY scripts/entrypoint.sh entrypoint.sh
+
+# requirements
+RUN pip install -r requirements.txt
+
+RUN chmod +x entrypoint.sh
+ENTRYPOINT ["/usr/src/app/entrypoint.sh"]

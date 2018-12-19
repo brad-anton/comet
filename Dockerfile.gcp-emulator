@@ -1,0 +1,9 @@
+# Dockerfile.gcp-emulator
+# @brad_anton
+#
+# Simple helper PUBSUB docker for testing comet
+FROM google/cloud-sdk:latest
+
+# gcloud doesnt seem to honor the PUBSUB_EMULATOR_HOST env variable
+# so we need to hardcode the address (WTF bro?)
+CMD gcloud beta emulators pubsub start --host-port=0.0.0.0:8085
