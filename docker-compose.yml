@@ -17,7 +17,6 @@ services:
             PROJECT_ID: comet-example-project
             PUBSUB_TOPIC: comet-example-topic
             PUBSUB_SUBSCRIPTION: comet-example-subscription
-            #PUBSUB_HOST: http://gcp-emulator:8085
             PUBSUB_SCHEMA: http
             PUBSUB_HOSTNAME: gcp-emulator
             PUBSUB_PORT: 8085

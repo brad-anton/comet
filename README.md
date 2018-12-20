@@ -266,6 +266,30 @@ data=events)
 In the email template `risky_toaster_template.html` we can do more grouping or sorting, assuming that one toaster owner is responsible for several toasters. For example alerts can be sorted by location or grouped by new/old status, first presenting all newly discovered risky toasters, and then having a reminder list about the still open issues for toasters that have been reported before but are not fixed yet.
 
 
+# Docker!
+Just to ensure a quick testing environment, you can build this with `docker-compose build`, however you'll need to set tiny bit of configuration:
+
+* `certs/file.txt` - This should contain your Google authentication credential as it's required for the use of `gcp-emulator`.
+
+And then you can build/run:
+
+```
+docker-compose build
+docker-compose up
+```
+
+And just to send a test alert:
+```
+./comet_example/test-tools/pubsub_emulator_publish.sh forseti 
+```
+
+To confirm, see if there are any issues logged:
+```
+curl http://localhost:5000/v0/issues
+```
+
+One tiny note, both the Comet API and Main process require access to a database, or by default, the `comet-example.db` sqlite DB. Since these two services are in different containers, this package bootstraps them both its own `comet-example.db`. 
+
 # Code of Conduct
 
 This project adheres to the [Open Code of Conduct][code-of-conduct]. By participating, you are expected to honor this code.

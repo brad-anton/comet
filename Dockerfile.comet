@@ -11,7 +11,7 @@ FROM python:3
 WORKDIR /usr/src/app
 
 # Install comet
-COPY comet/comet_example/ .
+COPY comet_example/ .
 COPY scripts/entrypoint.sh entrypoint.sh
 
 # requirements
