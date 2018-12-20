@@ -35,5 +35,5 @@ if [ "$1" == 'api' ]; then
     FLASK_APP=comet/api.py flask run
 
 else
-    PUBSUB_HOST=$PUBSUB_HOST python comet/main.py
+    PUBSUB_HOST=$PUBSUB_HOST python -u comet/main.py
 fi

@@ -23,6 +23,8 @@ from comet_common.comet_parser_forseti import ForsetiSchema
 from comet_core import Comet
 from comet_core.fingerprint import comet_event_fingerprint
 
+from slack_wrapper import SlackWrapper 
+
 LOG = logging.getLogger(__name__)
 LOG.setLevel(logging.DEBUG)  # you might want to change the level to logging.INFO when running in production
 
@@ -159,6 +161,15 @@ def route(source_type, owner_email, events):
     body = make_email_body_from_events(events)
     send_email(owner_email, subject, body)
 
+    """Choosing not to do the domain to Webhook lookup in the hydrator 
+        as the Webhook URL is sort of sensitive information.
+
+        Had problems when defining a secondary, slack-specific router
+        so just adding to this one.
+    """
+    LOG.debug('Sending Slack Message!')
+    s = SlackWrapper(webhook_db='webhooks.json')
+    s.post(subject, body, owner_email)
 
 @APP.register_escalator()
 def escalate(source_type, events):  # pylint: disable=missing-docstring
