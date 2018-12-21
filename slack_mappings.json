@@ -1,0 +1,5 @@
+{
+   "owner-a@example.com": "#testing",
+   "SLACK_DEFAULT": "define a webhook or channel here",
+   "SLACK_BOT_TOKEN": "this is required when using channels"
+}

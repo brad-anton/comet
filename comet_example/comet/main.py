@@ -168,8 +168,11 @@ def route(source_type, owner_email, events):
         so just adding to this one.
     """
     LOG.debug('Sending Slack Message!')
-    s = SlackWrapper(webhook_db='webhooks.json')
-    s.post(subject, body, owner_email)
+    s = SlackWrapper(webhook_db='slack_mappings.json')
+    try:
+        s.post(subject, body, owner_email)
+    except (Exception) as e:
+        LOG.error('Exception raised when sending to Slack: {}'.format(e))
 
 @APP.register_escalator()
 def escalate(source_type, events):  # pylint: disable=missing-docstring

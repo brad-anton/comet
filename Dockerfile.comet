@@ -12,7 +12,7 @@ WORKDIR /usr/src/app
 
 # Install comet
 COPY comet_example/ .
-COPY webhooks.json .
+COPY slack_mappings.json .
 COPY scripts/entrypoint.sh entrypoint.sh
 
 # requirements
