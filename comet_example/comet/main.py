@@ -63,7 +63,6 @@ LOG.info('Registered parsers.')
 # Override configuration
 APP.set_config('forseti', {'wait_for_more': timedelta(minutes=2)})
 
-
 # Hydrators
 @APP.register_hydrator('forseti')
 def hydrate_forseti(event):
@@ -74,13 +73,18 @@ def hydrate_forseti(event):
     """
     msg = event.message
 
+    owner = f"{msg.get('project_owner')}@example.com"
     event.set_owner(f"{msg.get('project_owner')}@example.com")
     event.set_fingerprint(comet_event_fingerprint(data_dict=msg,
                                                   blacklist=['id', 'rule_index'],
                                                   prefix='forseti_'))
+    slack = slack_get_destination_from_owner(owner)
 
     # arbitrary metadata
     event.set_metadata({
+        'notifications': {
+            'slacks': [ slack ]
+        },
         'issue_type': msg.get('resource'),
         'source_readable': 'GCP Configuration Scanner',
         'resource': msg['project_id'] + '/' + msg['resource_id'],
@@ -108,6 +112,12 @@ def get_owner_email_from_domain(domain):
     }.get(domain, 'example-resource-owner@example.com')
     return email
 
+def slack_get_destination_from_owner(owner, mapping='slack_mappings.json'):
+    """A helper function to illustrate adding the slack destination
+    during hydration. SlackWrapper has all of this functionality here
+    """
+    s = SlackWrapper(mapping_filename=mapping)
+    return s.get_destination_from_owner(owner)
 
 @APP.register_hydrator('detectify')
 def hydrate_detectify(event):
@@ -118,12 +128,18 @@ def hydrate_detectify(event):
     """
     msg = event.message
 
-    event.set_owner(get_owner_email_from_domain(msg['domain']))
+    owner = get_owner_email_from_domain(msg['domain'])
+    event.set_owner(owner)
 
     event.set_fingerprint('detectify_' + msg['payload']['signature'])
+    
+    slack = slack_get_destination_from_owner(owner)
 
     # arbitrary metadata
     event.set_metadata({
+        'notifications': {
+            'slacks': [ slack ]
+        },
         'issue_type': msg['payload']['title'],
         'source_readable': 'Web Security Scanner',
         'resource': msg['domain'],
@@ -161,18 +177,39 @@ def route(source_type, owner_email, events):
     body = make_email_body_from_events(events)
     send_email(owner_email, subject, body)
 
-    """Choosing not to do the domain to Webhook lookup in the hydrator 
-        as the Webhook URL is sort of sensitive information.
-
-        Had problems when defining a secondary, slack-specific router
-        so just adding to this one.
+@APP.register_router()
+def route_slack(source_type, owner_email, events):
+    """Routes messages to slack based on owner_email and the 
+    Slack mapping to determine the destination channel or 
+    user. 
     """
-    LOG.debug('Sending Slack Message!')
-    s = SlackWrapper(webhook_db='slack_mappings.json')
-    try:
-        s.post(subject, body, owner_email)
-    except (Exception) as e:
-        LOG.error('Exception raised when sending to Slack: {}'.format(e))
+    slacks = events[0].event_metadata.get('notifications', {})\
+            .get('slacks')
+
+    if slacks is None:
+        LOG.error('Unable to determine slack destination! Aborting route_slack()')
+        return
+
+    subject = {
+        'detectify': 'Your website has a security vulnerability!',
+        'forseti': 'Your GCP project is insecurely configured',
+    }.get(source_type, 'Security issue found')
+
+    body = make_email_body_from_events(events)
+
+    # In this example, we're gathering the destination via during
+    # hydration rather then relying on mapping file. We still 
+    # need it here in order to fetch our SLACK_DEFAULT or 
+    # SLACK_BOT_TOKEN fields
+    s = SlackWrapper(mapping_filename='slack_mappings.json')
+
+    for slack in slacks:
+        msg = SlackWrapper.get_slack_msg(subject, body)
+        msg['channel'] = slack
+        try:
+            r = s.post_msg(msg)
+        except (Exception) as e:
+            LOG.error('Exception raised when sending to Slack: {}'.format(e))
 
 @APP.register_escalator()
 def escalate(source_type, events):  # pylint: disable=missing-docstring

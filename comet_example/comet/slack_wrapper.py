@@ -98,7 +98,7 @@ class SlackWrapper:
 
         return self.bot_token
 
-    def get_destination_from_owner(self, owner):
+    def get_destination_from_owner(self, owner, raise_notfound=False):
         if self.mapping is not None:
             if owner in self.mapping and self.mapping[owner]:
                 # If we have a mapping, return it! 
@@ -114,8 +114,12 @@ class SlackWrapper:
             return webhook
 
         # No webhooks here, so its either a channel, or nothing
-        return getenv(self.SLACK_DEFAULT, None)
-        
+        dst = getenv(self.SLACK_DEFAULT, None)
+
+        if raise_exception and dst is None:
+            raise NoDestinationDefined('No destination defined for owner, cannot output via Slack')
+
+        return dst
 
     @staticmethod
     def get_slack_msg(title, text, channel=None):
@@ -132,8 +136,8 @@ class SlackWrapper:
     @staticmethod
     def post_via_webhook(title, text, webhook):
         """Barebones helper method to post via a slack message via 
-        a webhook. It might be a good idea to account for exception
-        handling in the caller.
+        a webhook using basic formatting. It might be a good idea to 
+        account for exception handling in the caller.
 
         Keyword Arguments:
         title -- (String) Title of the slack message to be sent
@@ -144,14 +148,29 @@ class SlackWrapper:
         True/False if the post was successful
         """
         msg = SlackWrapper.get_slack_msg(title, text)
+        return SlackWrapper._post_via_webhook(msg, webhook)
+
+    @staticmethod
+    def _post_via_webhook(msg, webhook):
+        """Barebones helper method to post via a slack message via 
+        a webhook. It might be a good idea to account for exception
+        handling in the caller.
+
+        Keyword Arguments:
+        msg -- (Dict) Message formatted in accordance with Slack's guidelines
+        webhook -- (URL) Where to send the slack message
+
+        Returns: 
+        True/False if the post was successful
+        """
         r = requests.post(webhook, json = msg)
         return bool(r.text == 'ok')
 
     @staticmethod
     def post_via_bot_token(title, text, token, channel):
-        """Barebones helper method to post via a slack message via 
-        a bot user. It might be a good idea to account for exception
-        handling in the caller.
+        """Helper method to post via a slack message via 
+        a bot user using basic formatting. It might be a good idea to 
+        account for exception  handling in the caller.
 
         Keyword Arguments:
         title -- (String) Title of the slack message to be sent
@@ -163,30 +182,73 @@ class SlackWrapper:
         True/False if the post was successful
         """
         msg = SlackWrapper.get_slack_msg(title, text, channel=channel)
+        return SlackWrapper._post_via_bot_token(msg, token)
+        
+    @staticmethod
+    def _post_via_bot_token(msg, token):
+        """Barebones helper method to post via a slack message via 
+        a bot user. It might be a good idea to account for exception
+        handling in the caller.
 
+        Keyword Arguments:
+        msg -- (Dict) Message formatted in accordance with Slack's guidelines
+        token -- (Bot Token) The bot token (starts with `xoxb`)
+
+        Returns: 
+        True/False if the post was successful
+        """
         r = requests.post(SlackWrapper.EP_POST_MSG, 
                 headers = {'Authorization': 'Bearer {}'.format(token) },
                 json = msg).json()
+
         return bool( 'ok' in r and r['ok'] is True )
 
-    def post(self, title, text, owner):
-        dst = self.get_destination_from_owner(owner)
+    def post(self, title, text, owner=None, dst=None):
+        """Helper method in class to streamline the POSTing of a 
+        msg to its destination. 
+
+        Keyword Arguments:
+        title -- (String) Title of the slack message to be sent.
+        text -- (String) Body of the slack message to be sent.
+        owner -- (String) The owner of the event from Comet. This 
+            is only applicable if a mapping is defined, otherwise 
+            define dst. 
+        dst -- (String) A Slack channel or user to send the message
+            to.
+
+        Returns:
+        True/False if the post was successful
+        """
 
         if dst is None:
-            raise NoDestinationDefined('No destination defined for owner, cannot output via Slack')
-
-        success = False
+            dst = self.get_destination_from_owner(owner, raise_notfound=True)
 
         if dst.startswith('http'):
-            success = SlackWrapper.post_via_webhook(title, text, dst)
+            return SlackWrapper.post_via_webhook(title, text, dst)
 
-        elif dst.startswith('#'):
-            token = self._get_bot_token()
+        # if dst.startswith('#') or dst.startswith('@'):
+        token = self._get_bot_token()
 
-            if token is None:
-                raise NoBotTokenDefined('Destination is channel, but not bot token has been defined')
-            
-            success = SlackWrapper.post_via_bot_token(title, text, token, dst)
+        if token is None:
+            raise NoBotTokenDefined('Destination is channel or user, but not bot token has been defined')
         
-        return success 
+        return SlackWrapper.post_via_bot_token(title, text, token, dst)
+        
+    def post_msg(self, msg, webhook=None):
+        """Helper method in class to streamline the POSTing of a 
+        slack-friendly msg to its destination. 
+
+        Keyword Arguments:
+        msg -- (Dict) Message formatted in accordance with Slack's guidelines
+        webhook -- (String) Webhook URL, if applicable
+
+        Returns:
+        True/False if the post was successful
+        """
+
+        if webhook is None:
+            token = self._get_bot_token()
+            return SlackWrapper._post_via_bot_token(msg, token)
+
+        return SlackWrapper._post_via_webhook(msg, webook)
 
